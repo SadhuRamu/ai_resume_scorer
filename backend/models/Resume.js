@@ -4,19 +4,20 @@ const resumeSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
-    required: true,
+    required: [true, "userId is required"],
   },
   fileName: {
     type: String,
-    required: true,
+    required: [true, "fileName is required"],
+    trim: true,
   },
   filePath: {
     type: String,
-    required: true,
+    required: [true, "filePath is required"],
   },
   fileType: {
     type: String,
-    required: true,
+    required: [true, "fileType (mimetype) is required"],
   },
   uploadedAt: {
     type: Date,

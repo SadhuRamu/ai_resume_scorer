@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const keywordSchema = new mongoose.Schema({
   jobRole: {
     type: String,
-    required: true,
+    required: [true, "jobRole is required"],
     unique: true,
     lowercase: true,
     trim: true,

@@ -1,16 +1,19 @@
-const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
 /**
  * @route   POST /api/auth/register
  * @access  Public
+ *
+ * ⚠️  Do NOT call bcrypt.hash() here.
+ *     The User model's pre-save hook handles hashing automatically.
+ *     Double-hashing would produce a permanently broken password.
  */
 const register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    // Validate required fields
+    // ── Validate required fields ──────────────────────────────────────────
     if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
@@ -19,18 +22,27 @@ const register = async (req, res) => {
     }
 
     if (name.trim().length < 2) {
-      return res.status(400).json({ success: false, message: "Name must be at least 2 characters." });
+      return res.status(400).json({
+        success: false,
+        message: "Name must be at least 2 characters.",
+      });
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ success: false, message: "Invalid email format." });
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid email format.",
+      });
     }
 
     if (password.length < 6) {
-      return res.status(400).json({ success: false, message: "Password must be at least 6 characters." });
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters.",
+      });
     }
 
-    // Check if user already exists
+    // ── Uniqueness check ─────────────────────────────────────────────────
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
       return res.status(409).json({
@@ -39,17 +51,14 @@ const register = async (req, res) => {
       });
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create new user
+    // ── Create user (password is hashed by the pre-save hook) ────────────
     const user = await User.create({
       name: name.trim(),
       email: email.toLowerCase().trim(),
-      password: hashedPassword,
+      password, // ← plain text; the model hashes it before saving
     });
 
-    // Generate JWT
+    // ── Issue JWT ─────────────────────────────────────────────────────────
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
       expiresIn: "7d",
     });
@@ -91,7 +100,7 @@ const login = async (req, res) => {
       });
     }
 
-    // Find user
+    // ── Find user ─────────────────────────────────────────────────────────
     const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
       return res.status(401).json({
@@ -100,8 +109,8 @@ const login = async (req, res) => {
       });
     }
 
-    // Compare password
-    const isMatch = await bcrypt.compare(password, user.password);
+    // ── Compare password using model instance method ───────────────────────
+    const isMatch = await user.matchPassword(password);
     if (!isMatch) {
       return res.status(401).json({
         success: false,
@@ -109,7 +118,7 @@ const login = async (req, res) => {
       });
     }
 
-    // Generate JWT
+    // ── Issue JWT ─────────────────────────────────────────────────────────
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
       expiresIn: "7d",
     });
